@@ -7,7 +7,6 @@ from typing import Any, Dict, Iterable, List, Optional
 from pyarabic import araby
 from rapidfuzz import fuzz, process
 
-from pylocator.models import ARABIC_FALLBACK, PUNCT_PATTERN, TOKEN_PATTERN, Place
 from .models import ARABIC_FALLBACK, PUNCT_PATTERN, TOKEN_PATTERN, Place
 
 

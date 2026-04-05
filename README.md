@@ -12,7 +12,31 @@ Pylocator is a lightweight geolocation library powered by GeoNames data. It incl
 
 ## Install
 
-For local development:
+Repository links:
+
+- Web: https://github.com/JavierCalzadaEspuny/Pylocator
+- Git clone: https://github.com/JavierCalzadaEspuny/Pylocator.git
+
+Install directly from GitHub (recommended for consumers):
+
+```bash
+uv add git+https://github.com/JavierCalzadaEspuny/Pylocator.git
+```
+
+Or with pip:
+
+```bash
+pip install git+https://github.com/JavierCalzadaEspuny/Pylocator.git
+```
+
+For local development (clone + editable install):
+
+```bash
+git clone https://github.com/JavierCalzadaEspuny/Pylocator.git
+cd Pylocator
+```
+
+Then install in editable mode:
 
 ```bash
 pip install -e .
@@ -66,51 +90,203 @@ geo.add_countries(["LB"])
 geo.add_countries(["SY"])
 ```
 
-## Public API
+## Methods Reference (Real Output From `smoke_run.py`)
 
-### `Geolocator()`
+The blocks below use the exact method examples and output printed by:
 
-Creates or returns the shared singleton instance.
+```bash
+uv run python smoke_run.py
+```
 
-### `add_countries(codes)`
+### Method: `Geolocator()`
 
-Loads and activates one or more country datasets.
+Example:
 
-### `aadd_countries(codes)`
+```text
+g1 is g2
+```
 
-Async version of `add_countries`.
+Output:
 
-### `parse_locations(text, max_ngram=4, fuzzy_fallback=True)`
+```text
+True
+```
 
-Extracts place names from a sentence or paragraph.
+### Method: `add_countries(codes)`
 
-### `aparse_locations(text, max_ngram=4, fuzzy_fallback=True)`
+Example:
 
-Async version of `parse_locations`.
+```text
+add_countries(['LB', 'SY'])
+```
 
-### `locate(place_name, fuzzy=False, fuzzy_threshold=90, max_results=10, preferred_countries=None)`
+Output:
 
-Searches the active index for a place name.
+```text
+['LB', 'SY']
+```
 
-### `locate_in(query, only, fuzzy=False, threshold=90, limit=10, prefer=None)`
+### Method: `aadd_countries(codes)`
 
-Searches within a restricted country list.
+Example:
 
-### `alocate(place_name, fuzzy=True, fuzzy_threshold=90, max_results=10, preferred_countries=None)`
+```text
+await aadd_countries(['US'])
+```
 
-Async version of `locate`.
+Output:
 
-### `alocate_in(query, only, fuzzy=True, threshold=90, limit=10, prefer=None)`
+```text
+['LB', 'SY', 'US']
+```
 
-Async version of `locate_in`.
+### Method: `parse_locations(text, max_ngram=4, fuzzy_fallback=True)`
 
-### `sentence_locations(text, fuzzy_threshold=90, max_results_per_location=1, preferred_countries=None, fuzzy=True, max_ngram=4)`
+Example:
 
-Extracts all locations from a sentence and resolves them.
+```text
+parse_locations(english_text, max_ngram=3, fuzzy_fallback=True)
+```
 
-### `asentence_locations(text, fuzzy_threshold=90, max_results_per_location=1, preferred_countries=None, fuzzy=True, max_ngram=4)`
+Output:
 
-Async version of `sentence_locations`.
+```text
+['Washington', 'Beyrouth', 'Anderson', 'Tripoli']
+```
+
+Example:
+
+```text
+parse_locations(arabic_text, max_ngram=3, fuzzy_fallback=True)
+```
+
+Output:
+
+```text
+['Harîq', 'Beirut']
+```
+
+Example:
+
+```text
+parse_locations(mixed_text, max_ngram=3, fuzzy_fallback=True)
+```
+
+Output:
+
+```text
+['Beyrouth', 'Anderson', 'Damascus Governorate', 'Pocket Recreation Area', 'Night']
+```
+
+### Method: `aparse_locations(text, max_ngram=4, fuzzy_fallback=True)`
+
+Example:
+
+```text
+await aparse_locations('I visited New York and Beirut.', max_ngram=3)
+```
+
+Output:
+
+```text
+['New York', 'Anderson', 'Beyrouth']
+```
+
+### Method: `locate(place_name, fuzzy=False, fuzzy_threshold=90, max_results=10, preferred_countries=None)`
+
+Example:
+
+```text
+locate('Beirut', fuzzy=True, fuzzy_threshold=85, max_results=3)
+```
+
+Output:
+
+```text
+[{'name': 'Beyrouth', 'country': 'LB', 'match_score': 100}, {'name': 'Beirut', 'country': 'LB', 'match_score': 100}]
+```
+
+Example:
+
+```text
+locate('بيروت', fuzzy=True, fuzzy_threshold=85, max_results=3)
+```
+
+Output:
+
+```text
+[{'name': 'Beirut', 'country': 'LB', 'match_score': 100}]
+```
+
+### Method: `locate_in(query, only, fuzzy=False, threshold=90, limit=10, prefer=None)`
+
+Example:
+
+```text
+locate_in('Tripoli', only=['LB', 'SY'], fuzzy=True, threshold=85, limit=3)
+```
+
+Output:
+
+```text
+[{'name': 'Tripoli', 'country': 'LB', 'match_score': 100}, {'name': 'Tripoli District', 'country': 'LB', 'match_score': 100}, {'name': 'Tripoli', 'country': 'LB', 'match_score': 100}]
+```
+
+### Method: `sentence_locations(text, fuzzy_threshold=90, max_results_per_location=1, preferred_countries=None, fuzzy=True, max_ngram=4)`
+
+Example:
+
+```text
+sentence_locations(english_text, fuzzy_threshold=85, max_results_per_location=2, preferred_countries=['LB', 'SY'], fuzzy=True, max_ngram=3)
+```
+
+Output:
+
+```text
+[{'name': 'Washington', 'country': 'US', 'match_score': 100}, {'name': 'Washington', 'country': 'US', 'match_score': 100}, {'name': 'Beyrouth', 'country': 'LB', 'match_score': 100}, {'name': 'Beirut', 'country': 'LB', 'match_score': 100}]
+```
+
+### Method: `alocate(place_name, fuzzy=True, fuzzy_threshold=90, max_results=10, preferred_countries=None)`
+
+Example:
+
+```text
+await alocate('New York', fuzzy=True, fuzzy_threshold=80, max_results=3)
+```
+
+Output:
+
+```text
+[{'name': 'New York', 'country': 'US', 'match_score': 100}, {'name': 'New York City', 'country': 'US', 'match_score': 100}, {'name': 'New York County', 'country': 'US', 'match_score': 100}]
+```
+
+### Method: `alocate_in(query, only, fuzzy=True, threshold=90, limit=10, prefer=None)`
+
+Example:
+
+```text
+await alocate_in('San Francisco', only=['US'], fuzzy=True, threshold=80, limit=3)
+```
+
+Output:
+
+```text
+[{'name': 'San Francisco', 'country': 'US', 'match_score': 100}, {'name': 'San Francisco', 'country': 'US', 'match_score': 100}, {'name': 'La Valley', 'country': 'US', 'match_score': 100}]
+```
+
+### Method: `asentence_locations(text, fuzzy_threshold=90, max_results_per_location=1, preferred_countries=None, fuzzy=True, max_ngram=4)`
+
+Example:
+
+```text
+await asentence_locations('I visited New York and Beirut.', fuzzy_threshold=80, max_results_per_location=2, preferred_countries=['US', 'LB'], fuzzy=True, max_ngram=3)
+```
+
+Output:
+
+```text
+[{'name': 'New York', 'country': 'US', 'match_score': 100}, {'name': 'New York City', 'country': 'US', 'match_score': 100}, {'name': 'Anderson County', 'country': 'US', 'match_score': 100}, {'name': 'Anderson County', 'country': 'US', 'match_score': 100}]
+```
 
 ## Examples
 

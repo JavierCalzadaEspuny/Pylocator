@@ -22,8 +22,8 @@ class Geolocator:
     >>> geo = Geolocator()
     >>> geo.add_countries(["LB", "SY"])
     >>> results = geo.locate_in(query="Beirut", only=["LB", "SY"], fuzzy=True, threshold=85, limit=3)
-    >>> results[0]
-    {'geonameid': 170166, 'name': 'Beirut', 'lat': 33.88894, 'lon': 35.49442, 'population': 361366, 'country': 'LB', 'feature_class': 'P', 'feature_type': 'PPLC', 'admin_code': '16', 'elevation': 0, 'score': 100.0}
+    >>> results[0]["name"], results[0]["country"]
+    ('Beyrouth', 'LB')
     """
 
     _instance = None

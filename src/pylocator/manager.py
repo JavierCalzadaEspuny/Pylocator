@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Callable
 from urllib.request import urlopen
 
-from pylocator.models import DEFAULT_CACHE, GEONAMES_URL
 from .models import DEFAULT_CACHE, GEONAMES_URL
 
 

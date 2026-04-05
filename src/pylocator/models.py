@@ -1,7 +1,5 @@
 """Shared models, constants, and regex patterns for geolocation processing."""
 
-
-import os
 import re
 from pathlib import Path
 from typing import NamedTuple
