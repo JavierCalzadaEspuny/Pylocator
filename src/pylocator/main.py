@@ -281,10 +281,11 @@ class Geolocator:
     def locate(
         self,
         place_name: str,
+        max_results: int = 10,
+        only: Optional[str | List[str]] = None,
+        preferred_countries: Optional[List[str]] = None,
         fuzzy: bool = False,
         fuzzy_threshold: int = 90,
-        max_results: int = 10,
-        preferred_countries: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Resolve a place query against all active countries.
@@ -293,37 +294,51 @@ class Geolocator:
         ----------
         place_name : str
             Input place query to resolve.
+        max_results : int
+            Maximum number of matches to return.
+        only : Optional[str | List[str]]
+            Restrict lookup to one country code or a list of country codes.
+        preferred_countries : Optional[List[str]]
+            Optional country preference order for ranking.
         fuzzy : bool
             Whether fuzzy matching is allowed when exact matching fails.
         fuzzy_threshold : int
             Minimum fuzzy score required for candidate acceptance.
-        max_results : int
-            Maximum number of matches to return.
-        preferred_countries : Optional[List[str]]
-            Optional country preference order for ranking.
 
         Returns
         -------
         List[Dict[str, Any]]
             Ranked match list with location metadata and matching score.
         """
-        return self.engine.locate(
-            q=place_name,
-            idx=self.search_index,
-            fz=fuzzy,
-            thr=fuzzy_threshold,
-            top=max_results,
-            pref=preferred_countries,
+        if only is None:
+            return self.engine.locate(
+                q=place_name,
+                idx=self.search_index,
+                top=max_results,
+                fz=fuzzy,
+                thr=fuzzy_threshold,
+                pref=preferred_countries,
+            )
+
+        only_codes = [only] if isinstance(only, str) else list(only)
+        return self.locate_in(
+            query=place_name,
+            only=only_codes,
+            fuzzy=fuzzy,
+            threshold=fuzzy_threshold,
+            limit=max_results,
+            prefer=preferred_countries,
         )
 
     def locate_in(
         self,
         query: str,
+        limit: int = 10,
+        *,
         only: str | List[str],
+        prefer: Optional[List[str]] = None,
         fuzzy: bool = False,
         threshold: int = 90,
-        limit: int = 10,
-        prefer: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Resolve a place query restricted to a selected set of countries.
@@ -332,16 +347,16 @@ class Geolocator:
         ----------
         query : str
             Input place query to resolve.
+        limit : int
+            Maximum number of matches to return.
         only : str | List[str]
             One country code or a list of country codes defining the search scope.
+        prefer : Optional[List[str]]
+            Optional country preference order for ranking.
         fuzzy : bool
             Whether fuzzy matching is allowed when exact matching fails.
         threshold : int
             Minimum fuzzy score required for candidate acceptance.
-        limit : int
-            Maximum number of matches to return.
-        prefer : Optional[List[str]]
-            Optional country preference order for ranking.
 
         Returns
         -------
@@ -364,10 +379,11 @@ class Geolocator:
     async def alocate(
         self,
         place_name: str,
+        max_results: int = 10,
+        only: Optional[str | List[str]] = None,
+        preferred_countries: Optional[List[str]] = None,
         fuzzy: bool = True,
         fuzzy_threshold: int = 90,
-        max_results: int = 10,
-        preferred_countries: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Asynchronously resolve a place query against all active countries.
@@ -376,14 +392,16 @@ class Geolocator:
         ----------
         place_name : str
             Input place query to resolve.
+        max_results : int
+            Maximum number of matches to return.
+        only : Optional[str | List[str]]
+            Restrict lookup to one country code or a list of country codes.
+        preferred_countries : Optional[List[str]]
+            Optional country preference order for ranking.
         fuzzy : bool
             Whether fuzzy matching is allowed when exact matching fails.
         fuzzy_threshold : int
             Minimum fuzzy score required for candidate acceptance.
-        max_results : int
-            Maximum number of matches to return.
-        preferred_countries : Optional[List[str]]
-            Optional country preference order for ranking.
 
         Returns
         -------
@@ -393,20 +411,22 @@ class Geolocator:
         return await asyncio.to_thread(
             self.locate,
             place_name,
+            max_results,
+            only,
+            preferred_countries,
             fuzzy,
             fuzzy_threshold,
-            max_results,
-            preferred_countries,
         )
 
     async def alocate_in(
         self,
         query: str,
+        limit: int = 10,
+        *,
         only: str | List[str],
+        prefer: Optional[List[str]] = None,
         fuzzy: bool = True,
         threshold: int = 90,
-        limit: int = 10,
-        prefer: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Asynchronously resolve a place query within a selected country scope.
@@ -415,16 +435,16 @@ class Geolocator:
         ----------
         query : str
             Input place query to resolve.
+        limit : int
+            Maximum number of matches to return.
         only : str | List[str]
             One country code or a list of country codes defining the search scope.
+        prefer : Optional[List[str]]
+            Optional country preference order for ranking.
         fuzzy : bool
             Whether fuzzy matching is allowed when exact matching fails.
         threshold : int
             Minimum fuzzy score required for candidate acceptance.
-        limit : int
-            Maximum number of matches to return.
-        prefer : Optional[List[str]]
-            Optional country preference order for ranking.
 
         Returns
         -------
@@ -432,23 +452,24 @@ class Geolocator:
             Ranked match list limited to the requested country scope.
         """
         return await asyncio.to_thread(
-            self.locate_in,
-            query,
-            only,
-            fuzzy,
-            threshold,
-            limit,
-            prefer,
+            lambda: self.locate_in(
+                query,
+                limit,
+                only=only,
+                prefer=prefer,
+                fuzzy=fuzzy,
+                threshold=threshold,
+            )
         )
 
     def sentence_locations(
         self,
         text: str,
-        only: Optional[str | List[str]] = None,
-        fuzzy_threshold: int = 90,
         max_results_per_location: int = 1,
+        only: Optional[str | List[str]] = None,
         preferred_countries: Optional[List[str]] = None,
         fuzzy: bool = True,
+        fuzzy_threshold: int = 90,
         max_ngram: int = 4,
     ) -> List[Dict[str, Any]]:
         """
@@ -458,16 +479,16 @@ class Geolocator:
         ----------
         text : str
             Sentence or paragraph containing possible location mentions.
-        only : Optional[str | List[str]]
-            Restrict search to one country code or a list of country codes.
-        fuzzy_threshold : int
-            Minimum fuzzy score required for candidate acceptance.
         max_results_per_location : int
             Maximum number of results returned for each detected location.
+        only : Optional[str | List[str]]
+            Restrict search to one country code or a list of country codes.
         preferred_countries : Optional[List[str]]
             Optional country preference order for ranking.
         fuzzy : bool
             Whether to use fuzzy matching when direct parsing yields nothing.
+        fuzzy_threshold : int
+            Minimum fuzzy score required for candidate acceptance.
         max_ngram : int
             Maximum n-gram size used while extracting place names from text.
 
@@ -478,8 +499,8 @@ class Geolocator:
         """
         names = self.parse_locations(
             text,
-            only=only,
             max_ngram=max_ngram,
+            only=only,
             fuzzy_fallback=fuzzy,
         )
 
@@ -493,21 +514,22 @@ class Geolocator:
                 out.extend(
                     self.locate(
                         name,
+                        max_results=max_results_per_location,
+                        only=None,
+                        preferred_countries=preferred_countries,
                         fuzzy=fuzzy,
                         fuzzy_threshold=fuzzy_threshold,
-                        max_results=max_results_per_location,
-                        preferred_countries=preferred_countries,
                     )
                 )
             else:
                 out.extend(
                     self.locate_in(
                         query=name,
+                        limit=max_results_per_location,
                         only=only_codes,
+                        prefer=preferred_countries,
                         fuzzy=fuzzy,
                         threshold=fuzzy_threshold,
-                        limit=max_results_per_location,
-                        prefer=preferred_countries,
                     )
                 )
 
@@ -516,11 +538,11 @@ class Geolocator:
     async def asentence_locations(
         self,
         text: str,
-        only: Optional[str | List[str]] = None,
-        fuzzy_threshold: int = 90,
         max_results_per_location: int = 1,
+        only: Optional[str | List[str]] = None,
         preferred_countries: Optional[List[str]] = None,
         fuzzy: bool = True,
+        fuzzy_threshold: int = 90,
         max_ngram: int = 4,
     ) -> List[Dict[str, Any]]:
         """
@@ -530,16 +552,16 @@ class Geolocator:
         ----------
         text : str
             Sentence or paragraph containing possible location mentions.
-        only : Optional[str | List[str]]
-            Restrict search to one country code or a list of country codes.
-        fuzzy_threshold : int
-            Minimum fuzzy score required for candidate acceptance.
         max_results_per_location : int
             Maximum number of results returned for each detected location.
+        only : Optional[str | List[str]]
+            Restrict search to one country code or a list of country codes.
         preferred_countries : Optional[List[str]]
             Optional country preference order for ranking.
         fuzzy : bool
             Whether to use fuzzy matching when direct parsing yields nothing.
+        fuzzy_threshold : int
+            Minimum fuzzy score required for candidate acceptance.
         max_ngram : int
             Maximum n-gram size used while extracting place names from text.
 
@@ -551,11 +573,11 @@ class Geolocator:
         return await asyncio.to_thread(
             self.sentence_locations,
             text,
-            only,
-            fuzzy_threshold,
             max_results_per_location,
+            only,
             preferred_countries,
             fuzzy,
+            fuzzy_threshold,
             max_ngram,
         )
 
