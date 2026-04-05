@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pylocator"
+version = "0.1.0"
+description = "Lightweight geolocation package based on GeoNames with Arabic-friendly normalization."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+	{ name = "Javier Calzada" }
+]
+dependencies = [
+	"pyarabic>=0.6.15",
+	"rapidfuzz>=3.9.0",
+	"spacy>=3.7.0"
+]
+
+[project.optional-dependencies]
+dev = [
+	"build>=1.2.1",
+	"twine>=5.1.1"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pylocator*"]
