@@ -2,6 +2,7 @@
 
 import asyncio
 import io
+import inspect
 import zipfile
 from typing import Any, Dict, List, Optional
 
@@ -42,6 +43,9 @@ class Geolocator:
 
         self.manager = GeoDataManager()
         self.engine = GeoEngine()
+        self._engine_supports_allowed_countries = (
+            "allowed_countries" in inspect.signature(self.engine.locate).parameters
+        )
 
         self.country_indexes: Dict[str, Dict[str, List[Place]]] = {}
         self.search_index: Dict[str, List[Place]] = {}
@@ -58,6 +62,49 @@ class Geolocator:
         if any(existing.geonameid == rec.geonameid for existing in bucket):
             return
         bucket.append(rec)
+
+    def _finalize_country_index(self, country_data: Dict[str, List[Place]]) -> None:
+        """Sort each country key bucket once so lookup paths can reuse ready-to-rank lists."""
+        for places in country_data.values():
+            places.sort(key=lambda p: p.population, reverse=True)
+
+    @staticmethod
+    def _normalize_codes(codes: List[str]) -> List[str]:
+        """Normalize country code inputs while preserving order and removing duplicates."""
+        out: List[str] = []
+        seen = set()
+        for code in codes:
+            clean = code.upper().strip()
+            if not clean or clean in seen:
+                continue
+            seen.add(clean)
+            out.append(clean)
+        return out
+
+    def _merge_country_indexes(self, codes: List[str]) -> Dict[str, List[Place]]:
+        """Merge country indexes once using geonameid sets for O(1) duplicate checks."""
+        merged: Dict[str, List[Place]] = {}
+        seen_ids_by_key: Dict[str, set[int]] = {}
+
+        for code in codes:
+            for key, places in self.country_indexes.get(code, {}).items():
+                bucket = merged.get(key)
+                if bucket is None:
+                    merged[key] = list(places)
+                    seen_ids_by_key[key] = {p.geonameid for p in places}
+                    continue
+
+                seen_ids = seen_ids_by_key[key]
+                for place in places:
+                    if place.geonameid in seen_ids:
+                        continue
+                    seen_ids.add(place.geonameid)
+                    bucket.append(place)
+
+        for places in merged.values():
+            places.sort(key=lambda p: p.population, reverse=True)
+
+        return merged
 
     def _parse_zip(self, zip_content: bytes, code: str) -> Dict[str, List[Place]]:
         """Parse a GeoNames ZIP payload into a normalized per-country lookup index."""
@@ -100,44 +147,8 @@ class Geolocator:
 
     def _rebuild_index(self) -> None:
         """Rebuild the merged search index from all currently active country indexes."""
-        merged: Dict[str, List[Place]] = {}
-
-        for code in self.active_countries:
-            for key, places in self.country_indexes.get(code, {}).items():
-                bucket = merged.setdefault(key, [])
-                for place in places:
-                    if any(existing.geonameid == place.geonameid for existing in bucket):
-                        continue
-                    bucket.append(place)
-
-        for key in merged:
-            merged[key].sort(key=lambda p: p.population, reverse=True)
-
+        merged = self._merge_country_indexes(sorted(self.active_countries))
         self.search_index = merged
-
-    def _scoped_index(self, only: List[str]) -> Dict[str, List[Place]]:
-        """Build and return a temporary merged index limited to specific countries."""
-        codes = [c.upper() for c in only if c and c.strip()]
-        if not codes:
-            return {}
-
-        missing = [c for c in codes if c not in self.active_countries]
-        if missing:
-            self.add_countries(missing)
-
-        merged: Dict[str, List[Place]] = {}
-        for code in codes:
-            for key, places in self.country_indexes.get(code, {}).items():
-                bucket = merged.setdefault(key, [])
-                for place in places:
-                    if any(existing.geonameid == place.geonameid for existing in bucket):
-                        continue
-                    bucket.append(place)
-
-        for key in merged:
-            merged[key].sort(key=lambda p: p.population, reverse=True)
-
-        return merged
 
     def add_countries(self, codes: List[str]) -> None:
         """
@@ -159,6 +170,7 @@ class Geolocator:
 
             try:
                 data = self.manager.get_country_data(code, self._parse_zip)
+                self._finalize_country_index(data)
                 self.country_indexes[code] = data
                 self.active_countries.add(code)
             except Exception as e:
@@ -213,10 +225,19 @@ class Geolocator:
             return []
 
         only_codes: Optional[List[str]] = None
-        scoped_index = self.search_index
+        allowed_countries: Optional[set[str]] = None
         if only is not None:
             only_codes = [only] if isinstance(only, str) else list(only)
-            scoped_index = self._scoped_index(only_codes)
+            normalized_codes = self._normalize_codes(only_codes)
+            if not normalized_codes:
+                return []
+
+            missing = [c for c in normalized_codes if c not in self.active_countries]
+            if missing:
+                self.add_countries(missing)
+
+            only_codes = normalized_codes
+            allowed_countries = set(normalized_codes)
 
         out: List[str] = []
         used = [False] * len(tokens)
@@ -227,11 +248,18 @@ class Geolocator:
                 continue
 
             norm = self.engine.normalize(phrase)
-            candidates = scoped_index.get(norm)
+            candidates = self.search_index.get(norm)
             if not candidates:
                 continue
 
-            out.append(candidates[0].name)
+            if allowed_countries is not None:
+                picked = next((p for p in candidates if p.country in allowed_countries), None)
+                if picked is None:
+                    continue
+                out.append(picked.name)
+            else:
+                out.append(candidates[0].name)
+
             for j in range(i, i + n):
                 used[j] = True
 
@@ -364,17 +392,39 @@ class Geolocator:
             Ranked match list limited to the requested country scope.
         """
         only_codes = [only] if isinstance(only, str) else list(only)
-        scoped = self._scoped_index(only_codes)
-        pref = prefer if prefer is not None else [c.upper() for c in only_codes]
+        normalized_codes = self._normalize_codes(only_codes)
+        if not normalized_codes:
+            return []
 
-        return self.engine.locate(
+        missing = [c for c in normalized_codes if c not in self.active_countries]
+        if missing:
+            self.add_countries(missing)
+
+        pref = prefer if prefer is not None else normalized_codes
+        allowed = set(normalized_codes)
+
+        if self._engine_supports_allowed_countries:
+            return self.engine.locate(
+                q=query,
+                idx=self.search_index,
+                fz=fuzzy,
+                thr=threshold,
+                top=limit,
+                pref=pref,
+                allowed_countries=allowed,
+            )
+
+        # Compatibility fallback for engines that do not accept allowed_countries.
+        results = self.engine.locate(
             q=query,
-            idx=scoped,
+            idx=self.search_index,
             fz=fuzzy,
             thr=threshold,
-            top=limit,
+            top=max(limit * 3, 50),
             pref=pref,
         )
+        filtered = [item for item in results if item.get("country") in allowed]
+        return filtered[:limit]
 
     async def alocate(
         self,

@@ -2,7 +2,7 @@
 
 import re
 import unicodedata
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from pyarabic import araby
 from rapidfuzz import fuzz, process
@@ -130,6 +130,7 @@ class GeoEngine:
         thr: int,
         top: int,
         pref: Optional[List[str]] = None,
+        allowed_countries: Optional[Set[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Locate places by exact or fuzzy matching against a normalized index.
@@ -148,6 +149,8 @@ class GeoEngine:
             Maximum number of matches to return.
         pref : Optional[List[str]]
             Optional preferred country order used for ranking.
+        allowed_countries : Optional[Set[str]]
+            Optional country whitelist applied as a post-filter on matched places.
 
         Returns
         -------
@@ -173,6 +176,8 @@ class GeoEngine:
             }
 
         exact = idx.get(norm_q, [])
+        if allowed_countries is not None:
+            exact = [p for p in exact if p.country in allowed_countries]
         if exact:
             out = [as_result(p, 100) for p in exact]
             out.sort(key=lambda x: (rank_country(x["country"]), -x["population"]))
@@ -184,7 +189,7 @@ class GeoEngine:
         cutoff = max(0, min(100, thr))
         key_matches = process.extract(
             norm_q,
-            list(idx.keys()),
+            idx.keys(),
             scorer=fuzz.ratio,
             score_cutoff=cutoff,
             limit=200,
@@ -194,6 +199,8 @@ class GeoEngine:
         for key, score, _ in key_matches:
             score_i = int(score)
             for place in idx[key]:
+                if allowed_countries is not None and place.country not in allowed_countries:
+                    continue
                 old = scored.get(place.geonameid)
                 now = as_result(place, score_i)
                 if old is None or now["match_score"] > old["match_score"]:
