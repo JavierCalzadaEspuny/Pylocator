@@ -75,8 +75,14 @@ geo = Geolocator()
 geo.add_countries(["LB"])
 
 text = "A fire was reported near Beirut and Tripoli overnight."
-locations = geo.parse_locations(text, max_ngram=3, fuzzy_fallback=True)
-matches = geo.sentence_locations(text, fuzzy_threshold=85, max_results_per_location=2, preferred_countries=["LB"])
+locations = geo.parse_locations(text, only="LB", max_ngram=3, fuzzy_fallback=True)
+matches = geo.sentence_locations(
+	text,
+	only="LB",
+	fuzzy_threshold=85,
+	max_results_per_location=2,
+	preferred_countries=["LB"],
+)
 
 print(locations)
 print(matches)
@@ -140,7 +146,7 @@ Output:
 ['LB', 'SY', 'US']
 ```
 
-### Method: `parse_locations(text, max_ngram=4, fuzzy_fallback=True)`
+### Method: `parse_locations(text, only=None, max_ngram=4, fuzzy_fallback=True)`
 
 Example:
 
@@ -178,7 +184,19 @@ Output:
 ['Beyrouth', 'Anderson', 'Damascus Governorate', 'Pocket Recreation Area', 'Night']
 ```
 
-### Method: `aparse_locations(text, max_ngram=4, fuzzy_fallback=True)`
+Example:
+
+```text
+parse_locations('Tripoli and Damascus were mentioned.', only='LB', max_ngram=3, fuzzy_fallback=True)
+```
+
+Output:
+
+```text
+['Tripoli']
+```
+
+### Method: `aparse_locations(text, only=None, max_ngram=4, fuzzy_fallback=True)`
 
 Example:
 
@@ -232,7 +250,7 @@ Output:
 [{'name': 'Tripoli', 'country': 'LB', 'match_score': 100}, {'name': 'Tripoli District', 'country': 'LB', 'match_score': 100}, {'name': 'Tripoli', 'country': 'LB', 'match_score': 100}]
 ```
 
-### Method: `sentence_locations(text, fuzzy_threshold=90, max_results_per_location=1, preferred_countries=None, fuzzy=True, max_ngram=4)`
+### Method: `sentence_locations(text, only=None, fuzzy_threshold=90, max_results_per_location=1, preferred_countries=None, fuzzy=True, max_ngram=4)`
 
 Example:
 
@@ -244,6 +262,18 @@ Output:
 
 ```text
 [{'name': 'Washington', 'country': 'US', 'match_score': 100}, {'name': 'Washington', 'country': 'US', 'match_score': 100}, {'name': 'Beyrouth', 'country': 'LB', 'match_score': 100}, {'name': 'Beirut', 'country': 'LB', 'match_score': 100}]
+```
+
+Example:
+
+```text
+sentence_locations('Tripoli and Damascus were mentioned.', only='LB', fuzzy_threshold=85, max_results_per_location=2, preferred_countries=['LB', 'SY'], fuzzy=True, max_ngram=3)
+```
+
+Output:
+
+```text
+[{'name': 'Tripoli', 'country': 'LB', 'match_score': 100}, {'name': 'Tripoli District', 'country': 'LB', 'match_score': 100}]
 ```
 
 ### Method: `alocate(place_name, fuzzy=True, fuzzy_threshold=90, max_results=10, preferred_countries=None)`
@@ -274,7 +304,7 @@ Output:
 [{'name': 'San Francisco', 'country': 'US', 'match_score': 100}, {'name': 'San Francisco', 'country': 'US', 'match_score': 100}, {'name': 'La Valley', 'country': 'US', 'match_score': 100}]
 ```
 
-### Method: `asentence_locations(text, fuzzy_threshold=90, max_results_per_location=1, preferred_countries=None, fuzzy=True, max_ngram=4)`
+### Method: `asentence_locations(text, only=None, fuzzy_threshold=90, max_results_per_location=1, preferred_countries=None, fuzzy=True, max_ngram=4)`
 
 Example:
 
@@ -302,6 +332,12 @@ print(geo.parse_locations("New York and San Francisco were mentioned in the repo
 print(geo.locate("New York", fuzzy=True, fuzzy_threshold=80, max_results=3))
 ```
 
+Strict country filter from sentence text:
+
+```python
+print(geo.parse_locations("Tripoli and Damascus were mentioned in the report.", only="LB", max_ngram=3))
+```
+
 ### Arabic text
 
 ```python
@@ -323,7 +359,17 @@ geo = Geolocator()
 geo.add_countries(["LB", "US"])
 
 text = "Explosion near Beirut and New York during the night."
-print(geo.sentence_locations(text, fuzzy_threshold=85, max_results_per_location=2, preferred_countries=["LB", "US"], fuzzy=True, max_ngram=3))
+print(
+	geo.sentence_locations(
+		text,
+		only=["LB"],
+		fuzzy_threshold=85,
+		max_results_per_location=2,
+		preferred_countries=["LB", "US"],
+		fuzzy=True,
+		max_ngram=3,
+	)
+)
 ```
 
 ## Async Use
@@ -338,7 +384,7 @@ async def main() -> None:
 	await geo.aadd_countries(["LB", "US"])
 
 	print(await geo.alocate("New York", fuzzy=True, fuzzy_threshold=80, max_results=3))
-	print(await geo.asentence_locations("I visited New York and Beirut.", fuzzy_threshold=80, max_results_per_location=2, fuzzy=True, max_ngram=3))
+	print(await geo.asentence_locations("I visited New York and Beirut.", only=["US"], fuzzy_threshold=80, max_results_per_location=2, fuzzy=True, max_ngram=3))
 
 
 asyncio.run(main())

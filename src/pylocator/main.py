@@ -185,6 +185,7 @@ class Geolocator:
     def parse_locations(
         self,
         text: str,
+        only: Optional[str | List[str]] = None,
         max_ngram: int = 4,
         fuzzy_fallback: bool = True,
     ) -> List[str]:
@@ -195,6 +196,8 @@ class Geolocator:
         ----------
         text : str
             Source text that may contain one or more location mentions.
+        only : Optional[str | List[str]]
+            Restrict lookup to one country code or a list of country codes.
         max_ngram : int
             Maximum n-gram size to scan when looking for place names.
         fuzzy_fallback : bool
@@ -209,6 +212,12 @@ class Geolocator:
         if not tokens:
             return []
 
+        only_codes: Optional[List[str]] = None
+        scoped_index = self.search_index
+        if only is not None:
+            only_codes = [only] if isinstance(only, str) else list(only)
+            scoped_index = self._scoped_index(only_codes)
+
         out: List[str] = []
         used = [False] * len(tokens)
 
@@ -218,7 +227,7 @@ class Geolocator:
                 continue
 
             norm = self.engine.normalize(phrase)
-            candidates = self.search_index.get(norm)
+            candidates = scoped_index.get(norm)
             if not candidates:
                 continue
 
@@ -227,7 +236,16 @@ class Geolocator:
                 used[j] = True
 
         if not out and fuzzy_fallback:
-            fuzzy = self.locate(text, fuzzy=True, fuzzy_threshold=90, max_results=10)
+            if only_codes is None:
+                fuzzy = self.locate(text, fuzzy=True, fuzzy_threshold=90, max_results=10)
+            else:
+                fuzzy = self.locate_in(
+                    text,
+                    only=only_codes,
+                    fuzzy=True,
+                    threshold=90,
+                    limit=10,
+                )
             out = [item["name"] for item in fuzzy]
 
         return list(dict.fromkeys(out))
@@ -235,6 +253,7 @@ class Geolocator:
     async def aparse_locations(
         self,
         text: str,
+        only: Optional[str | List[str]] = None,
         max_ngram: int = 4,
         fuzzy_fallback: bool = True,
     ) -> List[str]:
@@ -245,6 +264,8 @@ class Geolocator:
         ----------
         text : str
             Source text that may contain one or more location mentions.
+        only : Optional[str | List[str]]
+            Restrict lookup to one country code or a list of country codes.
         max_ngram : int
             Maximum n-gram size to scan when looking for place names.
         fuzzy_fallback : bool
@@ -255,7 +276,7 @@ class Geolocator:
         List[str]
             Deduplicated list of resolved location names.
         """
-        return await asyncio.to_thread(self.parse_locations, text, max_ngram, fuzzy_fallback)
+        return await asyncio.to_thread(self.parse_locations, text, only, max_ngram, fuzzy_fallback)
 
     def locate(
         self,
@@ -423,6 +444,7 @@ class Geolocator:
     def sentence_locations(
         self,
         text: str,
+        only: Optional[str | List[str]] = None,
         fuzzy_threshold: int = 90,
         max_results_per_location: int = 1,
         preferred_countries: Optional[List[str]] = None,
@@ -436,6 +458,8 @@ class Geolocator:
         ----------
         text : str
             Sentence or paragraph containing possible location mentions.
+        only : Optional[str | List[str]]
+            Restrict search to one country code or a list of country codes.
         fuzzy_threshold : int
             Minimum fuzzy score required for candidate acceptance.
         max_results_per_location : int
@@ -452,25 +476,47 @@ class Geolocator:
         List[Dict[str, Any]]
             Aggregated match list for all resolved location names in the text.
         """
-        names = self.parse_locations(text, max_ngram=max_ngram, fuzzy_fallback=fuzzy)
+        names = self.parse_locations(
+            text,
+            only=only,
+            max_ngram=max_ngram,
+            fuzzy_fallback=fuzzy,
+        )
+
+        only_codes: Optional[List[str]] = None
+        if only is not None:
+            only_codes = [only] if isinstance(only, str) else list(only)
 
         out: List[Dict[str, Any]] = []
         for name in names:
-            out.extend(
-                self.locate(
-                    name,
-                    fuzzy=fuzzy,
-                    fuzzy_threshold=fuzzy_threshold,
-                    max_results=max_results_per_location,
-                    preferred_countries=preferred_countries,
+            if only_codes is None:
+                out.extend(
+                    self.locate(
+                        name,
+                        fuzzy=fuzzy,
+                        fuzzy_threshold=fuzzy_threshold,
+                        max_results=max_results_per_location,
+                        preferred_countries=preferred_countries,
+                    )
                 )
-            )
+            else:
+                out.extend(
+                    self.locate_in(
+                        query=name,
+                        only=only_codes,
+                        fuzzy=fuzzy,
+                        threshold=fuzzy_threshold,
+                        limit=max_results_per_location,
+                        prefer=preferred_countries,
+                    )
+                )
 
         return out
 
     async def asentence_locations(
         self,
         text: str,
+        only: Optional[str | List[str]] = None,
         fuzzy_threshold: int = 90,
         max_results_per_location: int = 1,
         preferred_countries: Optional[List[str]] = None,
@@ -484,6 +530,8 @@ class Geolocator:
         ----------
         text : str
             Sentence or paragraph containing possible location mentions.
+        only : Optional[str | List[str]]
+            Restrict search to one country code or a list of country codes.
         fuzzy_threshold : int
             Minimum fuzzy score required for candidate acceptance.
         max_results_per_location : int
@@ -503,6 +551,7 @@ class Geolocator:
         return await asyncio.to_thread(
             self.sentence_locations,
             text,
+            only,
             fuzzy_threshold,
             max_results_per_location,
             preferred_countries,

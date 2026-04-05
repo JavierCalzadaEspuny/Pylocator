@@ -55,6 +55,16 @@ async def main() -> None:
         "parse_locations(mixed_text, max_ngram=3, fuzzy_fallback=True)",
         geo.parse_locations(mixed_text, max_ngram=3, fuzzy_fallback=True),
     )
+    show(
+        "parse_locations",
+        "parse_locations('Tripoli and Damascus were mentioned.', only='LB', max_ngram=3, fuzzy_fallback=True)",
+        geo.parse_locations(
+            "Tripoli and Damascus were mentioned.",
+            only="LB",
+            max_ngram=3,
+            fuzzy_fallback=True,
+        ),
+    )
 
     show(
         "aparse_locations",
@@ -104,6 +114,23 @@ async def main() -> None:
     )
 
     show(
+        "sentence_locations",
+        "sentence_locations('Tripoli and Damascus were mentioned.', only='LB', fuzzy_threshold=85, max_results_per_location=2, preferred_countries=['LB', 'SY'], fuzzy=True, max_ngram=3)",
+        compact(
+            geo.sentence_locations(
+                "Tripoli and Damascus were mentioned.",
+                only="LB",
+                fuzzy_threshold=85,
+                max_results_per_location=2,
+                preferred_countries=["LB", "SY"],
+                fuzzy=True,
+                max_ngram=3,
+            ),
+            limit=4,
+        ),
+    )
+
+    show(
         "alocate",
         "await alocate('New York', fuzzy=True, fuzzy_threshold=80, max_results=3)",
         compact(await geo.alocate("New York", fuzzy=True, fuzzy_threshold=80, max_results=3)),
@@ -132,6 +159,23 @@ async def main() -> None:
                 fuzzy_threshold=80,
                 max_results_per_location=2,
                 preferred_countries=["US", "LB"],
+                fuzzy=True,
+                max_ngram=3,
+            ),
+            limit=4,
+        ),
+    )
+
+    show(
+        "asentence_locations",
+        "await asentence_locations('Tripoli and Damascus were mentioned.', only='LB', fuzzy_threshold=85, max_results_per_location=2, preferred_countries=['LB', 'SY'], fuzzy=True, max_ngram=3)",
+        compact(
+            await geo.asentence_locations(
+                "Tripoli and Damascus were mentioned.",
+                only="LB",
+                fuzzy_threshold=85,
+                max_results_per_location=2,
+                preferred_countries=["LB", "SY"],
                 fuzzy=True,
                 max_ngram=3,
             ),
