@@ -4,8 +4,6 @@ import re
 from pathlib import Path
 from typing import NamedTuple
 
-PROJECT_NAME = "pylocator"
-
 # ==============================
 # Constants
 # ==============================
@@ -17,7 +15,7 @@ GEONAMES_URL = "https://download.geonames.org/export/dump/{}.zip"
 
 def _default_cache_dir() -> Path:
     """Build and create the default geolocator cache directory in home."""
-    path = Path.home() / f".cache_{PROJECT_NAME}"
+    path = Path.home() / f".cache" / "pylocator"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
